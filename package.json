@@ -1,0 +1,14 @@
+{
+	"name": "hello-xht",
+	"version": "1.0.8",
+	"description": "Hello World",
+	"main": "index.js",
+	"license": "MIT",
+	"private": false,
+	"scripts": {
+		"start ": "node index.js"
+	},
+	"engines": {
+		"node": ">=18"
+	}
+}
