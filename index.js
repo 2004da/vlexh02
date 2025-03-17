@@ -4,10 +4,10 @@ const { Readable } = require('stream');
 
 // 核心配置
 const SETTINGS = {
-    ['UUID']: '0cf85927-2c71-4e87-9df3-b1eb7d5a9e1b', // vless UUID
+    ['UUID']: '0cf85927-2c71-4e87-9df3-b1eb7d5a9e1b', // vl1ss UUID
     ['LOG_LEVEL']: 'info',  // 改为 info 级别，减少调试信息
     ['BUFFER_SIZE']: '128', // 缓冲区大小 KiB
-    ['XHTTP_PATH']: '/xblog', // XHTTP 路径
+    ['XH1TP_PATH']: '/xblog', // XH1TP 路径
 }
 
 // 基础工具函数
@@ -52,7 +52,7 @@ function log(type, ...args) {
     }
 }
 
-// VLESS 协议解析
+// VL1SS 协议解析
 function parse_uuid(uuid) {
     uuid = uuid.replaceAll('-', '')
     const r = []
@@ -62,7 +62,7 @@ function parse_uuid(uuid) {
     return r
 }
 
-async function read_vless_header(reader, cfg_uuid_str) {
+async function read_vl1ss_header(reader, cfg_uuid_str) {
     // 移除调试日志，只保留连接信息
     let readed_len = 0
     let header = new Uint8Array()
@@ -143,7 +143,7 @@ async function read_vless_header(reader, cfg_uuid_str) {
         throw new Error('parse hostname failed')
     }
     
-    log('info', `VLESS connection to ${hostname}:${port}`);
+    log('info', `VL1SS connection to ${hostname}:${port}`);
     return {
         hostname,
         port,
@@ -176,15 +176,15 @@ async function read_atleast(reader, n) {
 
 // 添加 parse_header 函数
 async function parse_header(uuid_str, client) {
-    log('debug', 'Starting to parse VLESS header');
+    log('debug', 'Starting to parse VL1SS header');
     const reader = client.readable.getReader()
     try {
-        const vless = await read_vless_header(reader, uuid_str)
-        log('debug', 'VLESS header parsed successfully');
-        return vless
+        const vl1ss = await read_vl1ss_header(reader, uuid_str)
+        log('debug', 'VL1SS header parsed successfully');
+        return vl1ss
     } catch (err) {
-        log('error', `VLESS header parse error: ${err.message}`);
-        throw new Error(`read vless header error: ${err.message}`)
+        log('error', `VL1SS header parse error: ${err.message}`);
+        throw new Error(`read vl1ss header error: ${err.message}`)
     } finally {
         reader.releaseLock()
     }
@@ -265,9 +265,9 @@ function pipe_relay() {
     return pump;
 }
 
-// XHTTP 客户端
-function create_xhttp_client(cfg, buff_size, nodeReadableStream) {
-    log('debug', 'Creating XHTTP client');
+// XH1TP 客户端
+function create_xh1tp_client(cfg, buff_size, nodeReadableStream) {
+    log('debug', 'Creating XH1TP client');
     
     // 将 Node.js 可读流转换为 Web Streams API 可读流
     const readable = new ReadableStream({
@@ -305,7 +305,7 @@ function create_xhttp_client(cfg, buff_size, nodeReadableStream) {
         status: 200,
         headers: headers 
     })
-    log('debug', 'XHTTP client created with headers:', headers);
+    log('debug', 'XH1TP client created with headers:', headers);
     
     return {
         readable: readable,
@@ -318,11 +318,11 @@ function create_xhttp_client(cfg, buff_size, nodeReadableStream) {
 async function handle_client(cfg, client) {
     try {
         log('info', 'New client connection received');
-        const vless = await parse_header(cfg.UUID, client)
-        log('info', `Connecting to remote: ${vless.hostname}:${vless.port}`);
-        const remote = await connect_remote(vless.hostname, vless.port)
+        const vl1ss = await parse_header(cfg.UUID, client)
+        log('info', `Connecting to remote: ${vl1ss.hostname}:${vl1ss.port}`);
+        const remote = await connect_remote(vl1ss.hostname, vl1ss.port)
         log('info', 'Remote connection established');
-        relay(cfg, client, remote, vless)
+        relay(cfg, client, remote, vl1ss)
         return true
     } catch (err) {
         log('error', 'Client handling error:', err.message);
@@ -394,7 +394,7 @@ function socketToWebStream(socket) {
 }
 
 // 修改 relay 函数
-function relay(cfg, client, remote, vless) {
+function relay(cfg, client, remote, vl1ss) {
     const pump = pipe_relay();
     let isClosing = false;
     
@@ -415,7 +415,7 @@ function relay(cfg, client, remote, vless) {
         }
     }
 
-    const uploader = pump(client, remoteStream, vless.data)
+    const uploader = pump(client, remoteStream, vl1ss.data)
         .catch(err => {
             // 只记录非预期错误
             if (!err.message.includes('aborted') && 
@@ -427,7 +427,7 @@ function relay(cfg, client, remote, vless) {
             client.reading_done && client.reading_done();
         });
 
-    const downloader = pump(remoteStream, client, vless.resp)
+    const downloader = pump(remoteStream, client, vl1ss.resp)
         .catch(err => {
             // 只记录非预期错误
             if (!err.message.includes('aborted') && 
@@ -447,10 +447,10 @@ const server = http.createServer((req, res) => {
     
     if (
         req.method === 'POST' &&
-        req.url.includes(SETTINGS.XHTTP_PATH)
+        req.url.includes(SETTINGS.XH1TP_PATH)
     ) {
-        log('info', 'Valid XHTTP request received');
-        const client = create_xhttp_client(SETTINGS, 0, req);
+        log('info', 'Valid XH1TP request received');
+        const client = create_xh1tp_client(SETTINGS, 0, req);
         
         // 处理请求中断
         req.on('close', () => {
@@ -493,5 +493,5 @@ const server = http.createServer((req, res) => {
 const PORT = process.env.PORT || 30515;
 server.listen(PORT, () => {
     log('info', `Server running on port ${PORT}`);
-    log('info', `VLESS UUID: ${SETTINGS.UUID}`);
+    log('info', `VL1SS UUID: ${SETTINGS.UUID}`);
 });
